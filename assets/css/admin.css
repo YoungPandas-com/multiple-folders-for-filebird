@@ -1,0 +1,175 @@
+/**
+ * Multiple Folders for FileBird - Admin Styles
+ */
+
+/* Multiple Folders Selection UI */
+.mffb-folders-container {
+    margin: 10px 0;
+    position: relative;
+    max-width: 400px;
+}
+
+.mffb-folders-select {
+    width: 100%;
+}
+
+.mffb-folders-info {
+    margin: 5px 0;
+    font-size: 12px;
+    color: #666;
+}
+
+.mffb-folders-count {
+    font-weight: bold;
+    color: #2271b1;
+}
+
+/* Notification */
+.mffb-notification {
+    position: fixed;
+    top: 50px;
+    right: 20px;
+    padding: 10px 15px;
+    background: #fff;
+    border-left: 4px solid #00a0d2;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    z-index: 999999;
+    opacity: 0;
+    transform: translateX(30px);
+    transition: all 0.3s ease;
+}
+
+.mffb-notification-success {
+    border-left-color: #46b450;
+}
+
+.mffb-notification-error {
+    border-left-color: #dc3232;
+}
+
+.mffb-notification-info {
+    border-left-color: #00a0d2;
+}
+
+.mffb-notification.mffb-show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Folder Selection Dialog */
+.mffb-dialog {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    z-index: 999999;
+    border-radius: 3px;
+    width: 400px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.mffb-folder-tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.mffb-folder-tree ul {
+    list-style: none;
+    margin: 0 0 0 20px;
+    padding: 0;
+}
+
+.mffb-folder-tree li {
+    padding: 5px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+.mffb-folder-tree li:hover {
+    background: #f0f0f0;
+}
+
+.mffb-folder-tree li.selected {
+    background: #2271b1;
+    color: #fff;
+}
+
+.mffb-dialog-actions {
+    text-align: right;
+}
+
+.mffb-dialog-actions button {
+    margin-left: 10px;
+}
+
+/* Media Library Folders Column */
+.mffb-folder-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.mffb-folder-tag {
+    display: inline-block;
+    background: #f0f7fc;
+    border: 1px solid #c3ddf4;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: #2271b1;
+}
+
+.mffb-no-folders {
+    color: #999;
+    font-style: italic;
+}
+
+/* Helper Text */
+.mffb-info {
+    font-size: 12px;
+    color: #666;
+    margin: 5px 0;
+    font-style: italic;
+}
+
+/* Select2 Custom Styles */
+.select2-container--default .select2-selection--multiple {
+    border-color: #8c8f94;
+}
+
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #2271b1;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #f0f7fc;
+    border-color: #c3ddf4;
+    color: #2271b1;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #2271b1;
+}
+
+/* Improved attachment context menu */
+.mffb-add-to-folder {
+    margin-left: 5px !important;
+}
+
+/* Ensure dragging indicator works */
+.attachments .attachment.mffb-dragging {
+    opacity: 0.7;
+}
