@@ -6,220 +6,257 @@
     
     // Initialize when document is ready
     $(document).ready(function() {
-        // Initialize multiple folders functionality
+        // Initialize multiple folders enhancement
         initMultipleFolders();
-        
-        // Setup attachment edit screen enhancements
-        setupAttachmentEditScreen();
-        
-        // Handle bulk edit mode
-        setupBulkEditMode();
     });
     
     /**
      * Initialize multiple folders functionality
      */
     function initMultipleFolders() {
-        // Initialize Select2 for better folder selection
-        if ($.fn.select2) {
-            $('.mffb-folders-select').select2({
-                placeholder: mffb_data.strings.select_folders,
-                allowClear: true,
-                width: '100%'
-            });
-            
-            // Update folder count when selection changes
-            $(document).on('change', '.mffb-folders-select', function() {
-                const count = $(this).val() ? $(this).val().length : 0;
-                $(this).closest('.mffb-folders-container').find('.mffb-folders-count').text(count);
+        // Enhance the FileBird folder selection UI
+        enhanceFileBirdFolderUI();
+        
+        // Listen for FileBird's initialization in Media Library
+        $(document).on('fbv.init', function() {
+            console.log('Multiple Folders for FileBird: Initializing media library enhancements');
+            enhanceMediaLibraryUI();
+        });
+    }
+    
+    /**
+     * Enhance FileBird's folder selection UI in attachment edit screen
+     */
+    function enhanceFileBirdFolderUI() {
+        // Wait for DOM to be ready with the attachment edit screen
+        if ($('.fbv-attachment-edit-wrapper').length > 0) {
+            initAttachmentEditEnhancements();
+        } else {
+            // For dynamically loaded content (like in modal)
+            $(document).on('click', '.attachment-details', function() {
+                setTimeout(function() {
+                    initAttachmentEditEnhancements();
+                }, 300);
             });
         }
         
-        // Listen for FileBird's initialization
-        $(document).on('fbv.init', function() {
-            console.log('Multiple Folders for FileBird: Initializing');
-            
-            // Wait for FileBird UI to be fully loaded
-            setTimeout(function() {
-                enhanceFileBirdUI();
-            }, 500);
+        // Listen for the folder selection popup to open
+        $(document).on('fbv_after_open_folders_dropdown', function() {
+            enhanceFolderSelectionPopup();
         });
     }
     
     /**
-     * Enhance FileBird's UI with our modifications
+     * Initialize enhancements for the attachment edit screen
      */
-    function enhanceFileBirdUI() {
-        // Add "Add to Folder" option to FileBird's context menu
-        addContextMenuOptions();
-        
-        // Enhance the drag and drop functionality
-        enhanceDragAndDrop();
-        
-        // Add multi-folder support to modal window
-        enhanceModalFolderSelection();
-    }
-    
-    /**
-     * Add custom options to FileBird's context menu
-     */
-    function addContextMenuOptions() {
-        // Monitor for context menu opening
-        $(document).on('mousedown', '.attachment', function(e) {
-            if (e.which === 3) { // Right click
-                // Store the current attachment for reference
-                window.mffbCurrentAttachment = $(this).data('id');
-            }
-        });
-        
-        // Add our custom menu items when context menu is shown
-        $(document).on('contextmenu:filled', function() {
-            // Look for the context menu
-            const $contextMenu = $('.media-frame .media-toolbar .media-toolbar-secondary .media-frame-actions');
+    function initAttachmentEditEnhancements() {
+        // Add toggle button for multi-select mode
+        $('.fbv-attachment-edit-wrapper').each(function() {
+            const $wrapper = $(this);
             
-            if ($contextMenu.length && !$contextMenu.find('.mffb-add-to-folder').length) {
-                // Add our custom button
-                $contextMenu.append(
-                    $('<button class="button mffb-add-to-folder">').text('Add to Folder')
-                );
+            // Only add if not already enhanced
+            if (!$wrapper.hasClass('mffb-enhanced')) {
+                $wrapper.addClass('mffb-enhanced');
                 
-                // Handle our custom button click
-                $('.mffb-add-to-folder').on('click', function(e) {
-                    e.preventDefault();
+                // Check if it has multiple folders data
+                if ($wrapper.data('multiple')) {
+                    $wrapper.addClass('mffb-multiple-folders');
                     
-                    // Show folder selection dialog
-                    showFolderSelectionDialog();
+                    // Get the multiple folders
+                    const folderIds = $wrapper.data('multiple').toString().split(',');
+                    
+                    // Update the UI to show multiple selection
+                    if (folderIds.length > 1) {
+                        $wrapper.addClass('mffb-has-multiple');
+                        
+                        // Add indicator of multiple folders
+                        $wrapper.append('<span class="mffb-multi-indicator">' + folderIds.length + '</span>');
+                    }
+                }
+                
+                // Add multi-select toggle if not already added
+                if (!$wrapper.find('.mffb-toggle-multi').length) {
+                    $wrapper.append('<span class="mffb-toggle-multi" title="' + mffb_data.strings.click_to_toggle + '">+</span>');
+                }
+                
+                // Handle clicks on the toggle button
+                $wrapper.find('.mffb-toggle-multi').on('click', function(e) {
+                    e.stopPropagation();
+                    toggleMultiSelectMode($wrapper);
                 });
             }
         });
     }
     
     /**
-     * Show a dialog to select folders
+     * Toggle multi-select mode for a folder wrapper
+     * 
+     * @param {jQuery} $wrapper The folder wrapper element
      */
-    function showFolderSelectionDialog() {
-        // Get selected attachment IDs
-        const selectedAttachments = [];
+    function toggleMultiSelectMode($wrapper) {
+        $wrapper.toggleClass('mffb-multi-select-mode');
         
-        if (window.mffbCurrentAttachment) {
-            selectedAttachments.push(window.mffbCurrentAttachment);
+        const isMultiMode = $wrapper.hasClass('mffb-multi-select-mode');
+        const $toggle = $wrapper.find('.mffb-toggle-multi');
+        
+        if (isMultiMode) {
+            $toggle.text('✓');
+            $toggle.attr('title', mffb_data.strings.multi_select_enabled);
+            
+            // Add a hidden input to indicate multi-select mode is active
+            $wrapper.append('<input type="hidden" name="attachments[' + $wrapper.data('attachment-id') + '][fbv_multi_mode]" value="true">');
+            
+            // Show notification
+            showNotification(mffb_data.strings.multi_select_enabled, 'info');
         } else {
-            $('.attachments .selected').each(function() {
-                selectedAttachments.push($(this).data('id'));
-            });
+            $toggle.text('+');
+            $toggle.attr('title', mffb_data.strings.click_to_toggle);
+            
+            // Remove the hidden input
+            $wrapper.find('input[name$="[fbv_multi_mode]"]').remove();
         }
+    }
+    
+    /**
+     * Enhance the folder selection popup to support multiple selections
+     */
+    function enhanceFolderSelectionPopup() {
+        const $popup = $('.fbv-folders-dropdown');
         
-        if (!selectedAttachments.length) {
-            alert('Please select at least one item.');
-            return;
-        }
-        
-        // Create dialog if it doesn't exist
-        if (!$('#mffb-folder-dialog').length) {
-            const $dialog = $('<div id="mffb-folder-dialog" class="mffb-dialog" title="Add to Folder">');
+        if ($popup.length && !$popup.hasClass('mffb-enhanced')) {
+            $popup.addClass('mffb-enhanced');
             
-            $dialog.append('<p>Select a folder to add these files to:</p>');
+            // Check if we're in multi-select mode
+            const $activeWrapper = $('.fbv-attachment-edit-wrapper.mffb-multi-select-mode');
             
-            // Get folders from FileBird's data
-            const folderList = $('<ul class="mffb-folder-tree">');
-            
-            // Create tree view
-            if (window.fbv_data && window.fbv_data.tree) {
-                buildFolderTree(window.fbv_data.tree, folderList);
-            }
-            
-            $dialog.append(folderList);
-            
-            // Add action buttons
-            const $actions = $('<div class="mffb-dialog-actions">');
-            $actions.append('<button type="button" class="button button-secondary mffb-dialog-cancel">Cancel</button>');
-            $actions.append('<button type="button" class="button button-primary mffb-dialog-add">Add to Folder</button>');
-            
-            $dialog.append($actions);
-            
-            // Attach to body
-            $('body').append($dialog);
-            
-            // Setup event handlers
-            $('.mffb-folder-tree').on('click', 'li', function(e) {
-                e.stopPropagation();
-                $('.mffb-folder-tree li').removeClass('selected');
-                $(this).addClass('selected');
-            });
-            
-            $('.mffb-dialog-cancel').on('click', function() {
-                $('#mffb-folder-dialog').hide();
-            });
-            
-            $('.mffb-dialog-add').on('click', function() {
-                const selectedFolder = $('.mffb-folder-tree li.selected').data('id');
+            if ($activeWrapper.length) {
+                // Add multi-select indicator to the popup
+                $popup.addClass('mffb-multi-select-mode');
+                $popup.prepend('<div class="mffb-multi-select-indicator">' + mffb_data.strings.multi_select_enabled + '</div>');
                 
-                if (!selectedFolder) {
-                    alert('Please select a folder.');
-                    return;
+                // Get current folder IDs
+                const attachmentId = $activeWrapper.data('attachment-id');
+                const currentFolderIds = $activeWrapper.data('multiple') ? 
+                    $activeWrapper.data('multiple').toString().split(',').map(Number) : 
+                    [$activeWrapper.data('folder-id')];
+                
+                // Highlight folders that are already selected
+                if (currentFolderIds.length) {
+                    setTimeout(function() {
+                        $('.fbv-dropdown-item').each(function() {
+                            const folderId = $(this).data('id');
+                            if (currentFolderIds.includes(folderId)) {
+                                $(this).addClass('mffb-already-selected');
+                            }
+                        });
+                    }, 50);
                 }
                 
-                // Add files to the selected folder
-                addFilesToFolder(selectedAttachments, selectedFolder);
+                // Modify the click behavior to support multiple selections
+                $(document).off('click.fbv.dropdown.item');
+                $(document).on('click.fbv.dropdown.item', '.fbv-dropdown-item', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const $item = $(this);
+                    const folderId = $item.data('id');
+                    
+                    // Toggle selection for this folder
+                    if ($item.hasClass('mffb-already-selected')) {
+                        // Remove from selection
+                        $item.removeClass('mffb-already-selected');
+                        
+                        // Update the data attribute
+                        const updatedFolderIds = currentFolderIds.filter(id => id !== folderId);
+                        $activeWrapper.data('multiple', updatedFolderIds.join(','));
+                        
+                        // Update via AJAX
+                        updateAttachmentFolders(attachmentId, updatedFolderIds);
+                    } else {
+                        // Add to selection
+                        $item.addClass('mffb-already-selected');
+                        
+                        // Update the data attribute
+                        currentFolderIds.push(folderId);
+                        $activeWrapper.data('multiple', currentFolderIds.join(','));
+                        
+                        // Update via AJAX
+                        updateAttachmentFolders(attachmentId, currentFolderIds);
+                    }
+                    
+                    // Prevent closing the dropdown
+                    return false;
+                });
                 
-                // Hide dialog
-                $('#mffb-folder-dialog').hide();
-            });
-        }
-        
-        // Show the dialog
-        $('#mffb-folder-dialog').show();
-    }
-    
-    /**
-     * Build folder tree for selection dialog
-     * 
-     * @param {Array} folders Folders array
-     * @param {jQuery} $element Element to append to
-     */
-    function buildFolderTree(folders, $element) {
-        folders.forEach(function(folder) {
-            const $item = $('<li>').text(folder.text).data('id', folder.id);
-            
-            if (folder.children && folder.children.length) {
-                const $sublist = $('<ul>');
-                buildFolderTree(folder.children, $sublist);
-                $item.append($sublist);
+                // Add a close button to finalize selection
+                if (!$popup.find('.mffb-close-button').length) {
+                    $popup.append('<div class="mffb-close-button">Done</div>');
+                    
+                    $popup.find('.mffb-close-button').on('click', function() {
+                        $popup.hide();
+                    });
+                }
             }
-            
-            $element.append($item);
-        });
+        }
     }
     
     /**
-     * Add files to a folder without removing from other folders
+     * Update attachment folders via AJAX
      * 
-     * @param {Array} attachmentIds Attachment IDs
-     * @param {Number} folderId Folder ID
+     * @param {Number} attachmentId Attachment ID
+     * @param {Array} folderIds Array of folder IDs
      */
-    function addFilesToFolder(attachmentIds, folderId) {
-        // Show notification
-        showNotification(mffb_data.strings.saving, 'info');
-        
-        // Make AJAX request to add files to folder
+    function updateAttachmentFolders(attachmentId, folderIds) {
         $.ajax({
             url: mffb_data.ajax_url,
             type: 'POST',
             data: {
                 action: 'mffb_set_attachment_folders',
-                attachment_ids: attachmentIds,
-                folder_id: folderId,
-                mode: 'add',
+                attachment_id: attachmentId,
+                folder_ids: folderIds,
+                mode: 'set',
                 nonce: mffb_data.nonce
             },
             success: function(response) {
                 if (response.success) {
-                    showNotification(mffb_data.strings.saved, 'success');
+                    // Update the UI to reflect the new folders
+                    const $wrapper = $('.fbv-attachment-edit-wrapper[data-attachment-id="' + attachmentId + '"]');
                     
-                    // Refresh FileBird's counts
-                    if (typeof fbv !== 'undefined' && typeof fbv.refreshCountAll === 'function') {
-                        fbv.refreshCountAll();
+                    if (folderIds.length > 1) {
+                        $wrapper.addClass('mffb-has-multiple');
+                        
+                        // Update or add multi indicator
+                        if ($wrapper.find('.mffb-multi-indicator').length) {
+                            $wrapper.find('.mffb-multi-indicator').text(folderIds.length);
+                        } else {
+                            $wrapper.append('<span class="mffb-multi-indicator">' + folderIds.length + '</span>');
+                        }
+                        
+                        // Show notification
+                        showNotification('File is now in ' + folderIds.length + ' folders', 'success');
+                    } else if (folderIds.length === 1) {
+                        $wrapper.removeClass('mffb-has-multiple');
+                        $wrapper.find('.mffb-multi-indicator').remove();
+                        
+                        // Update the text input with the folder name (if available)
+                        if (response.data && response.data.folders && response.data.folders.length) {
+                            $wrapper.find('input[type="text"]').val(response.data.folders[0].name);
+                        }
+                        
+                        // Show notification
+                        showNotification('Folder updated successfully', 'success');
+                    } else {
+                        $wrapper.removeClass('mffb-has-multiple');
+                        $wrapper.find('.mffb-multi-indicator').remove();
+                        $wrapper.find('input[type="text"]').val('Uncategorized');
+                        
+                        // Show notification
+                        showNotification('File removed from all folders', 'info');
                     }
+                    
+                    // Update the data attributes
+                    $wrapper.data('multiple', folderIds.join(','));
+                    $wrapper.data('folder-id', folderIds.length ? folderIds[0] : 0);
                 } else {
                     showNotification(mffb_data.strings.error, 'error');
                 }
@@ -231,150 +268,167 @@
     }
     
     /**
-     * Enhance FileBird's drag and drop functionality
+     * Enhance the media library UI
+     */
+    function enhanceMediaLibraryUI() {
+        // Add multi-folder support for drag and drop
+        enhanceDragAndDrop();
+        
+        // Add multi-folder column view
+        enhanceMediaLibraryColumns();
+    }
+    
+    /**
+     * Enhance drag and drop in media library
      */
     function enhanceDragAndDrop() {
-        // Monitor drag and drop events
-        $(document).on('mousedown', '.attachments .attachment', function() {
-            // Tag attachments that are being dragged
-            $(this).addClass('mffb-dragging');
+        // Monitor keypress state for Ctrl/Cmd key
+        let ctrlKeyPressed = false;
+        
+        $(document).on('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                ctrlKeyPressed = true;
+                $('.fbv-tree').addClass('mffb-multi-drag-mode');
+            }
+        }).on('keyup', function(e) {
+            if (!e.ctrlKey && !e.metaKey) {
+                ctrlKeyPressed = false;
+                $('.fbv-tree').removeClass('mffb-multi-drag-mode');
+            }
         });
         
+        // Add info tooltip about multi-drag
+        if ($('.fbv-header').length && !$('.mffb-drag-tip').length) {
+            $('.fbv-header').append('<div class="mffb-drag-tip">Hold Ctrl/Cmd when dropping files to add to folder without moving</div>');
+        }
+        
         // Override FileBird's drop handler if possible
-        if (typeof fbv !== 'undefined' && typeof fbv.droppedAttachments === 'function') {
-            const originalDropHandler = fbv.droppedAttachments;
+        if (typeof window.fbv !== 'undefined' && typeof window.fbv.droppedAttachments === 'function') {
+            const originalDropHandler = window.fbv.droppedAttachments;
             
-            fbv.droppedAttachments = function(folder) {
-                // Check if we should add to folder instead of moving
-                const draggedItems = $('.mffb-dragging');
-                
-                if (draggedItems.length && (window.event && (window.event.ctrlKey || window.event.metaKey))) {
-                    // Add to folder without removing from other folders (Ctrl/Cmd key pressed)
+            window.fbv.droppedAttachments = function(folder) {
+                // Add to folder without removing from other folders when Ctrl/Cmd is pressed
+                if (ctrlKeyPressed) {
                     const ids = [];
+                    const selectedItems = $('.attachment.selected');
                     
-                    draggedItems.each(function() {
+                    selectedItems.each(function() {
                         ids.push($(this).data('id'));
                     });
                     
-                    // Add to folder
-                    addFilesToFolder(ids, folder.id);
-                    
-                    // Reset dragging state
-                    $('.mffb-dragging').removeClass('mffb-dragging');
-                    
-                    return;
+                    if (ids.length) {
+                        // Add to folder via our AJAX handler
+                        addToAdditionalFolder(ids, folder.id);
+                        
+                        // Show notification
+                        showNotification('Added to folder without moving', 'success');
+                        
+                        // Prevent default handling
+                        return;
+                    }
                 }
                 
                 // Default behavior (move to folder)
-                $('.mffb-dragging').removeClass('mffb-dragging');
                 return originalDropHandler.apply(this, arguments);
             };
         }
     }
     
     /**
-     * Enhance folder selection in the media modal
+     * Add files to an additional folder
+     * 
+     * @param {Array} attachmentIds Attachment IDs
+     * @param {Number} folderId Folder ID
      */
-    function enhanceModalFolderSelection() {
-        // Look for FileBird's folder selector in media modal
-        const checkForFolderSelector = setInterval(function() {
-            const $folderSelector = $('.media-frame .attachments-browser .media-toolbar .fbv-filter-dropdown');
-            
-            if ($folderSelector.length && !$folderSelector.hasClass('mffb-enhanced')) {
-                // Mark as enhanced
-                $folderSelector.addClass('mffb-enhanced');
-                
-                // Add info about multi-folder capability
-                $folderSelector.after(
-                    $('<p class="mffb-info">').text('Tip: Hold Ctrl/Cmd when dragging to add to folder without moving')
-                );
-                
-                // Clear interval
-                clearInterval(checkForFolderSelector);
-            }
-        }, 500);
+    function addToAdditionalFolder(attachmentIds, folderId) {
+        // Make sure we have valid data
+        if (!attachmentIds.length || !folderId) return;
         
-        // Clear check after 10 seconds (prevent infinite checking)
-        setTimeout(function() {
-            clearInterval(checkForFolderSelector);
-        }, 10000);
-    }
-    
-    /**
-     * Setup attachment edit screen enhancements
-     */
-    function setupAttachmentEditScreen() {
-        // Handle folder selection change in attachment edit
-        $(document).on('change', '.mffb-folders-select', function() {
-            const $this = $(this);
-            const attachmentId = $this.data('attachment-id');
-            const selectedFolders = $this.val() || [];
-            
-            // Disable the select during the save operation
-            $this.prop('disabled', true);
-            
-            // Show saving notification
-            const $container = $this.closest('.mffb-folders-container');
-            $container.find('.mffb-folders-info').text(mffb_data.strings.saving);
-            
-            // Save via AJAX
+        // Show notification
+        showNotification('Adding to folder...', 'info');
+        
+        // Add to folder via AJAX
+        attachmentIds.forEach(function(attachmentId) {
             $.ajax({
                 url: mffb_data.ajax_url,
                 type: 'POST',
                 data: {
                     action: 'mffb_set_attachment_folders',
-                    attachment_ids: [attachmentId],
-                    folder_ids: selectedFolders,
-                    mode: 'set',
+                    attachment_id: attachmentId,
+                    folder_ids: [folderId],
+                    mode: 'add',
                     nonce: mffb_data.nonce
                 },
                 success: function(response) {
-                    if (response.success) {
-                        $container.find('.mffb-folders-info').html('<span class="mffb-folders-count">' + selectedFolders.length + '</span> ' + 'folders selected');
-                    } else {
-                        $container.find('.mffb-folders-info').text(mffb_data.strings.error);
+                    if (!response.success) {
+                        showNotification(mffb_data.strings.error, 'error');
                     }
-                    $this.prop('disabled', false);
-                },
-                error: function() {
-                    $container.find('.mffb-folders-info').text(mffb_data.strings.error);
-                    $this.prop('disabled', false);
                 }
             });
         });
+        
+        // Refresh FileBird's folder counts
+        setTimeout(function() {
+            if (typeof window.fbv !== 'undefined' && typeof window.fbv.refreshCountAll === 'function') {
+                window.fbv.refreshCountAll();
+            }
+        }, 500);
     }
     
     /**
-     * Setup bulk edit mode enhancements
+     * Enhance the media library columns
      */
-    function setupBulkEditMode() {
-        // Check if we're in the media grid view
-        if ($('.media-frame').length) {
-            // Monitor for bulk edit mode
-            $(document).on('click', '.select-mode-toggle-button', function() {
-                // Wait for bulk edit mode to initialize
-                setTimeout(function() {
-                    addBulkEditFolderButton();
-                }, 100);
-            });
+    function enhanceMediaLibraryColumns() {
+        // Add a custom column for folder information
+        if (typeof window.fbv !== 'undefined') {
+            // Hook into FileBird's attachment rendering
+            const originalRenderAttachment = window.fbv.renderAttachment;
+            
+            if (typeof originalRenderAttachment === 'function') {
+                window.fbv.renderAttachment = function(attachment) {
+                    const result = originalRenderAttachment.apply(this, arguments);
+                    
+                    // After rendering, add our custom folder indicator
+                    setTimeout(function() {
+                        addFolderIndicator(attachment);
+                    }, 100);
+                    
+                    return result;
+                };
+            }
         }
     }
     
     /**
-     * Add a bulk edit folder button
+     * Add folder indicator to attachment
+     * 
+     * @param {Object} attachment Attachment object
      */
-    function addBulkEditFolderButton() {
-        const $bulkActions = $('.media-toolbar-secondary .media-button');
+    function addFolderIndicator(attachment) {
+        if (!attachment || !attachment.id) return;
         
-        // Add our button if it doesn't exist
-        if ($bulkActions.length && !$('.mffb-bulk-add-to-folder').length) {
-            $bulkActions.first().after(
-                $('<button type="button" class="button media-button mffb-bulk-add-to-folder">').text('Add to Folder')
-            );
-            
-            // Handle button click
-            $('.mffb-bulk-add-to-folder').on('click', function() {
-                showFolderSelectionDialog();
+        const $attachment = $('.attachment[data-id="' + attachment.id + '"]');
+        
+        if ($attachment.length && !$attachment.find('.mffb-folder-count').length) {
+            // Get folders via AJAX
+            $.ajax({
+                url: mffb_data.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'mffb_get_attachment_folders',
+                    attachment_id: attachment.id,
+                    nonce: mffb_data.nonce
+                },
+                success: function(response) {
+                    if (response.success && response.data && response.data.folders) {
+                        const folderCount = response.data.folders.length;
+                        
+                        if (folderCount > 1) {
+                            // Add folder count badge
+                            $attachment.append('<div class="mffb-folder-count" title="This file is in ' + folderCount + ' folders">' + folderCount + '</div>');
+                        }
+                    }
+                }
             });
         }
     }
